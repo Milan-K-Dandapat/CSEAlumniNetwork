@@ -100,7 +100,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const ALLOWED_ORIGINS = [
     'http://localhost:3000',
-    'https://igitcsealumni.netlify.app',
+    'https://cse.igitalumni.in',
 ];
 const NETLIFY_PREVIEW_REGEX = /\.netlify\.app$/;
 
