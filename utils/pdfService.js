@@ -66,7 +66,7 @@ export const generateReceiptPDF = (details) => {
         doc.text('IGIT CSE Alumni Network', 400, 50, { align: 'right' });
         doc.text('IGIT Sarang', 400, 65, { align: 'right' });
         doc.text('Dhenkanal, Odisha, 759146', 400, 80, { align: 'right' });
-        doc.text('cseigitalumni@gmail.com', 400, 95, { align: 'right' });
+        doc.text('cse@igitalumni.in', 400, 95, { align: 'right' });
         
         doc.moveDown(5);
 
@@ -222,7 +222,7 @@ export const generateDonationPDF = (details) => {
         doc.text('IGIT CSE Alumni Network', 400, 50, { align: 'right' });
         doc.text('IGIT Sarang', 400, 65, { align: 'right' });
         doc.text('Dhenkanal, Odisha, 759146', 400, 80, { align: 'right' });
-        doc.text('cseigitalumni@gmail.com', 400, 95, { align: 'right' });
+        doc.text('cse@igitalumni.in', 400, 95, { align: 'right' });
 
         doc.moveDown(5);
 
@@ -391,7 +391,7 @@ export const generateFreeReceiptPDF = (details) => {
         doc.text('IGIT CSE Alumni Network', 400, 50, { align: 'right' });
         doc.text('IGIT Sarang', 400, 65, { align: 'right' });
         doc.text('Dhenkanal, Odisha, 759146', 400, 80, { align: 'right' });
-        doc.text('cseigitalumni@gmail.com', 400, 95, { align: 'right' });
+        doc.text('cse@igitalumni.in', 400, 95, { align: 'right' });
         
         doc.moveDown(5);
 

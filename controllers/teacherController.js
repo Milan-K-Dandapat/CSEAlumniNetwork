@@ -56,7 +56,7 @@ export const verifyTeacher = async (req, res) => {
                 to: updatedTeacher.email,
                 
                 // ✅ YOUR LOGIC: Using your 'from' address logic
-                from: process.env.EMAIL_USER || 'cseigitalumni@gmail.com',
+                from: process.env.EMAIL_USER || 'cse@igitalumni.in',
                 
                 // ✅ YOUR LOGIC: Using your requested emojis
                 subject: '🎉Congratulations! Your Alumni Network Account is Verified!',
