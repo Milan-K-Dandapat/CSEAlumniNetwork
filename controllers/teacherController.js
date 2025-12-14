@@ -1,11 +1,7 @@
 import Teacher from '../models/Teacher.js';
-import sgMail from '@sendgrid/mail'; // <-- 1. IMPORT SENDGRID
+import { sendEmail } from '../utils/emailService.js'; // <-- ✅ use SMTP helper instead of SendGrid
 
 const SUPER_ADMIN_EMAIL = 'milankumar7770@gmail.com';
-
-// --- 2. SET YOUR API KEY ---
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-// -----------------------------
 
 /**
  * @desc    Get all teacher profiles
@@ -50,19 +46,11 @@ export const verifyTeacher = async (req, res) => {
         const updatedTeacher = await teacher.save();
         
         
-        // --- 📧 START MERGED SENDGRID LOGIC ---
+        // --- 📧 EMAIL LOGIC (now using Zoho SMTP via sendEmail) ---
         if (updatedTeacher.email) {
-            const msg = {
-                to: updatedTeacher.email,
-                
-                // ✅ YOUR LOGIC: Using your 'from' address logic
-                from: process.env.EMAIL_USER || 'cse@igitalumni.in',
-                
-                // ✅ YOUR LOGIC: Using your requested emojis
-                subject: '🎉Congratulations! Your Alumni Network Account is Verified!',
-                
-                // ✅ MY DESIGN: The full animated email template
-               html: `
+            const subject = '🎉Congratulations! Your Alumni Network Account is Verified!';
+
+            const html = `
 <style>
     /* ... (all the CSS animation styles) ... */
     @keyframes draw-circle {
@@ -121,21 +109,29 @@ export const verifyTeacher = async (req, res) => {
     </div>
     
     <div style="background-color: #f9f9f9; color: #888; padding: 24px; text-align: center; font-size: 12px; border-top: 1px solid #eee;">
-        <p style="margin: 0;">Best regards,<br>The IGIT CSE Alumni Network Team</p>
+        <p style="margin: 0;">Best regards,<br>The IGIT MCA Alumni Network Team</p>
     </div>
 </div>
-`
-            };
+`;
+
             try {
-                await sgMail.send(msg);
+                await sendEmail({
+                    to: updatedTeacher.email,
+                    subject,
+                    html,
+                    // "from" comes from EMAIL_FROM / SMTP_USER in emailService.js
+                });
                 console.log(`Verification email sent successfully to ${updatedTeacher.email}`);
             } catch (emailError) {
-                console.error(`Failed to send verification email to ${updatedTeacher.email}:`, emailError.response?.body || emailError.message);
+                console.error(
+                    `Failed to send verification email to ${updatedTeacher.email}:`,
+                    emailError.message
+                );
             }
         } else {
             console.warn(`User ${updatedTeacher._id} approved but has no email address. Cannot send verification email.`);
         }
-        // --- 📧 END MERGED SENDGRID LOGIC ---
+        // --- 📧 END EMAIL LOGIC ---
 
         
         // 2. SEND SUCCESS RESPONSE TO ADMIN
