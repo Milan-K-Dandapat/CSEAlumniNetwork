@@ -40,7 +40,12 @@ import auth, { isSuperAdmin } from './middleware/auth.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config();
+
+console.log("SMTP_HOST:", process.env.SMTP_HOST);
+console.log("SMTP_USER:", process.env.SMTP_USER);
+console.log("SMTP_PASS:", process.env.SMTP_PASS ? "LOADED" : "MISSING");
+
 
 // --- MongoDB Connection ---
 const MONGO_URI = process.env.MONGO_URI;

@@ -1,66 +1,68 @@
 import nodemailer from "nodemailer";
+import dotenv from "dotenv";
+
+dotenv.config(); // ✅ Load env here
 
 // ===============================
-// SMTP2GO Transporter Setup
+// ZOHO SMTP TRANSPORTER
 // ===============================
 const transporter = nodemailer.createTransport({
-    host: "smtp.zoho.in",
-    port: 465,
-    secure: true, // REQUIRED for Zoho SSL
+    host: "smtp.zoho.in",          // ✅ Force Zoho Host
+    port: 465,                    // ✅ SSL Port
+    secure: true,                 // ✅ Required
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
-    },
-    tls: {
-        rejectUnauthorized: false
     }
 });
 
 
-// Verify SMTP Connection
+// ===============================
+// VERIFY CONNECTION
+// ===============================
 transporter.verify((error, success) => {
     if (error) {
         console.error("❌ SMTP Error:", error);
     } else {
-        console.log("✅ SMTP Server Ready");
+        console.log("✅ Zoho SMTP Connected Successfully");
     }
 });
 
+
 // ===============================
-// Helper: Format Event Date
+// DATE FORMATTER
 // ===============================
 const formatEventDate = (date) => {
     if (!date) return 'Date TBD';
+
     try {
-        const options = { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric', 
-            hour: 'numeric', 
-            minute: 'numeric', 
+        return new Date(date).toLocaleString('en-IN', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
             timeZone: 'Asia/Kolkata'
-        };
-        return new Date(date).toLocaleString('en-IN', options);
+        });
     } catch (e) {
-        console.error('Error formatting date:', e);
         return 'Date TBD';
     }
 };
 
 
 // ===============================
-// PAYMENT CONFIRMATION EMAIL
+// PAYMENT EMAIL
 // ===============================
 export const sendPaymentConfirmationEmail = async (details) => {
 
-    const { 
-        email, 
-        fullName, 
-        eventTitle, 
-        amount, 
-        eventDate, 
-        eventLocation, 
+    const {
+        email,
+        fullName,
+        eventTitle,
+        amount,
+        eventDate,
+        eventLocation,
         paymentId,
         pdfAttachment
     } = details;
@@ -70,45 +72,32 @@ export const sendPaymentConfirmationEmail = async (details) => {
     const mailOptions = {
         from: process.env.SMTP_FROM,
         to: email,
+
         subject: `✔ Registration Confirmed for ${eventTitle}!`,
 
         text: `Hi ${fullName},
 
-Registration Confirmed!
+Payment Successful.
 
-Thank you for registering. Your payment of ₹${amount} was successful.
-
+₹${amount}
 Payment ID: ${paymentId}
 
 Event: ${eventTitle}
-When: ${formattedDate}
-Where: ${eventLocation}
+Date: ${formattedDate}
+Location: ${eventLocation}
 
-Best,
-The Alumni Network Team`,
-
-        html: `
-
-${details.html || ''}
-
-`,
-
+IGIT Alumni Team`,
+        
         attachments: [
             {
-                filename: `receipt-${paymentId || 'event'}.pdf`,
+                filename: `receipt-${paymentId}.pdf`,
                 content: Buffer.from(pdfAttachment, "base64"),
                 contentType: "application/pdf"
             }
         ]
     };
 
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Payment confirmation email sent to ${email}`);
-    } catch (error) {
-        console.error('Error sending payment confirmation email:', error);
-        throw error;
-    }
+    await transporter.sendMail(mailOptions);
 };
 
 
@@ -117,50 +106,32 @@ ${details.html || ''}
 // ===============================
 export const sendDonationEmail = async (details) => {
 
-    const {
-        email,
-        fullName,
-        amount,
-        paymentId,
-        pdfAttachment
-    } = details;
+    const { email, fullName, amount, paymentId, pdfAttachment } = details;
 
     const mailOptions = {
         from: process.env.SMTP_FROM,
         to: email,
-        subject: 'Thank You for Your Generous Donation!',
+
+        subject: "Thank You For Your Donation",
 
         text: `Hi ${fullName},
 
-Thank you for your donation of ₹${amount}.
+Thank you for donating ₹${amount}
 
 Payment ID: ${paymentId}
 
-Best,
-The Alumni Network Team`,
-
-        html: `
-
-${details.html || ''}
-
-`,
+IGIT Alumni Team`,
 
         attachments: [
             {
-                filename: `donation-receipt-${paymentId}.pdf`,
+                filename: `donation-${paymentId}.pdf`,
                 content: Buffer.from(pdfAttachment, "base64"),
                 contentType: "application/pdf"
             }
         ]
     };
 
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Donation confirmation email sent to ${email}`);
-    } catch (error) {
-        console.error('Error sending donation email:', error);
-        throw error;
-    }
+    await transporter.sendMail(mailOptions);
 };
 
 
@@ -169,12 +140,12 @@ ${details.html || ''}
 // ===============================
 export const sendFreeEventEmail = async (details) => {
 
-    const { 
-        email, 
-        fullName, 
-        eventTitle, 
-        eventDate, 
-        eventLocation, 
+    const {
+        email,
+        fullName,
+        eventTitle,
+        eventDate,
+        eventLocation,
         receiptId,
         pdfAttachment
     } = details;
@@ -184,45 +155,34 @@ export const sendFreeEventEmail = async (details) => {
     const mailOptions = {
         from: process.env.SMTP_FROM,
         to: email,
-        subject: `🎉 Congratulations! Your Spot is Confirmed for ${eventTitle}!`,
+
+        subject: `🎉 Event Confirmed - ${eventTitle}`,
 
         text: `Hi ${fullName},
 
-Your spot is confirmed for ${eventTitle}.
+You are registered.
 
-When: ${formattedDate}
-Where: ${eventLocation}
+${eventTitle}
+${formattedDate}
+${eventLocation}
 
-Best,
-The Alumni Network Team`,
-
-        html: `
-
-${details.html || ''}
-
-`,
+IGIT Alumni Team`,
 
         attachments: [
             {
-                filename: `confirmation-${receiptId}.pdf`,
+                filename: `event-${receiptId}.pdf`,
                 content: Buffer.from(pdfAttachment, "base64"),
                 contentType: "application/pdf"
             }
         ]
     };
 
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Free event confirmation email sent to ${email}`);
-    } catch (error) {
-        console.error('Error sending free event email:', error);
-        throw error;
-    }
+    await transporter.sendMail(mailOptions);
 };
 
 
 // ===============================
-// ✅ GENERIC EMAIL FUNCTION (ADDED)
+// GENERIC EMAIL (OTP / RESET)
 // ===============================
 export const sendEmail = async ({ to, subject, text, html }) => {
 
@@ -234,17 +194,8 @@ export const sendEmail = async ({ to, subject, text, html }) => {
         html
     };
 
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`General email sent to ${to}`);
-    } catch (error) {
-        console.error('Error sending email:', error);
-        throw error;
-    }
+    await transporter.sendMail(mailOptions);
 };
 
 
-// ===============================
-// DEFAULT EXPORT (OPTIONAL SAFETY)
-// ===============================
 export default transporter;
