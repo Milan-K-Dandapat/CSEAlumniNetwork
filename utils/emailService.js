@@ -85,8 +85,6 @@ The Alumni Network Team`,
 
         html: `
 
-${/* YOUR FULL HTML REMAINS SAME */''}
-
 ${details.html || ''}
 
 `,
@@ -217,3 +215,32 @@ ${details.html || ''}
         throw error;
     }
 };
+
+
+// ===============================
+// ✅ GENERIC EMAIL FUNCTION (ADDED)
+// ===============================
+export const sendEmail = async ({ to, subject, text, html }) => {
+
+    const mailOptions = {
+        from: process.env.SMTP_FROM,
+        to,
+        subject,
+        text,
+        html
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`General email sent to ${to}`);
+    } catch (error) {
+        console.error('Error sending email:', error);
+        throw error;
+    }
+};
+
+
+// ===============================
+// DEFAULT EXPORT (OPTIONAL SAFETY)
+// ===============================
+export default transporter;
