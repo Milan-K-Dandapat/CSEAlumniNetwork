@@ -162,7 +162,7 @@ const getHighestNumericalID = async () => {
 
 
 // =========================================================================
-// REGISTRATION OTP
+// REGISTRATION OTP (ALUMNI)
 // =========================================================================
 
 export const sendOtp = async (req, res) => {
@@ -223,7 +223,7 @@ export const sendOtp = async (req, res) => {
 
 
 // =========================================================================
-// VERIFY REGISTER
+// VERIFY REGISTER (ALUMNI)
 // =========================================================================
 
 export const verifyOtpAndRegister = async (req, res) => {
@@ -260,9 +260,77 @@ export const verifyOtpAndRegister = async (req, res) => {
   }
 };
 
+// =========================================================================
+// REGISTRATION OTP (TEACHER)
+// =========================================================================
+
+export const sendOtpTeacher = async (req, res) => {
+  const { email, fullName, location } = req.body;
+
+  if (!email || !fullName || !location) {
+    return res.status(400).json({ message: 'All required fields must be filled.' });
+  }
+
+  try {
+    let teacher = await Teacher.findOne({ email });
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const otpExpires = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    const teacherData = {
+      ...req.body,
+      otp,
+      otpExpires,
+      isVerified: false,
+    };
+
+    if (teacher) {
+      teacher.set(teacherData);
+      await teacher.save();
+    } else {
+      await Teacher.create(teacherData);
+    }
+
+    await sendVerificationEmail(email, otp, 'Teacher Registration OTP');
+    res.json({ message: 'OTP sent successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'OTP sending failed' });
+  }
+};
 
 // =========================================================================
-// LOGIN OTP SEND
+// VERIFY REGISTER (TEACHER)
+// =========================================================================
+
+export const verifyOtpAndRegisterTeacher = async (req, res) => {
+  const { email, otp } = req.body;
+  try {
+    const teacher = await Teacher.findOne({
+      email,
+      otp,
+      otpExpires: { $gt: Date.now() },
+    });
+
+    if (!teacher) return res.status(400).json({ message: 'Invalid OTP' });
+
+    if (!teacher.teacherCode) {
+      teacher.teacherCode = `CSE${await getHighestNumericalID()}F`;
+    }
+
+    teacher.otp = undefined;
+    teacher.otpExpires = undefined;
+    await teacher.save();
+
+    res.json({ message: 'Teacher registration successful', user: teacher });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Verification failed' });
+  }
+};
+
+
+// =========================================================================
+// LOGIN OTP SEND (ALUMNI)
 // =========================================================================
 
 export const loginOtpSend = async (req, res) => {
@@ -306,9 +374,35 @@ export const loginOtpSend = async (req, res) => {
   }
 };
 
+// =========================================================================
+// LOGIN OTP SEND (TEACHER)
+// =========================================================================
+
+export const loginOtpSendTeacher = async (req, res) => {
+  const { identifier } = req.body;
+  try {
+    const user = await Teacher.findOne({ email: identifier });
+    if (!user) return res.status(404).json({ message: 'Teacher not found' });
+    if (!user.isVerified) return res.status(403).json({ message: 'Not approved yet' });
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const otpExpires = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    user.otp = otp;
+    user.otpExpires = otpExpires;
+    await user.save();
+
+    await sendVerificationEmail(user.email, otp, 'Teacher Login OTP');
+    res.json({ message: 'OTP sent' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'OTP failed' });
+  }
+};
+
 
 // =========================================================================
-// LOGIN VERIFY
+// LOGIN VERIFY (ALUMNI)
 // =========================================================================
 
 export const loginOtpVerify = async (req, res) => {
@@ -343,6 +437,38 @@ export const loginOtpVerify = async (req, res) => {
 
     console.error(err);
 
+    res.status(500).json({ message: 'Login failed' });
+  }
+};
+
+// =========================================================================
+// LOGIN VERIFY (TEACHER)
+// =========================================================================
+
+export const loginOtpVerifyTeacher = async (req, res) => {
+  const { identifier, otp } = req.body;
+  try {
+    const user = await Teacher.findOne({
+      email: identifier,
+      otp,
+      otpExpires: { $gt: Date.now() },
+    });
+
+    if (!user) return res.status(400).json({ message: 'Invalid OTP' });
+
+    user.otp = undefined;
+    user.otpExpires = undefined;
+    await user.save();
+
+    const token = jwt.sign(
+      { _id: user._id, email: user.email, role: user.role },
+      getSecret(),
+      { expiresIn: '7d' }
+    );
+
+    res.json({ token, user });
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ message: 'Login failed' });
   }
 };
@@ -468,89 +594,3 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ message: 'Reset failed' });
   }
 };
-// =========================================================================
-// TEACHER LOGIN OTP SEND
-// =========================================================================
-
-export const loginOtpSendTeacher = async (req, res) => {
-
-  const { identifier } = req.body;
-
-  try {
-
-    const user = await Teacher.findOne({ email: identifier });
-
-    if (!user)
-      return res.status(404).json({ message: 'Teacher not found' });
-
-    if (!user.isVerified)
-      return res.status(403).json({ message: 'Not approved yet' });
-
-    const otp = crypto.randomInt(100000, 999999).toString();
-
-    const otpExpires = new Date(
-      Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000
-    );
-
-    user.otp = otp;
-    user.otpExpires = otpExpires;
-
-    await user.save();
-
-    await sendVerificationEmail(
-      user.email,
-      otp,
-      'Teacher Login OTP'
-    );
-
-    res.json({ message: 'OTP sent to teacher email' });
-
-  } catch (err) {
-
-    console.error(err);
-
-    res.status(500).json({ message: 'OTP failed' });
-  }
-};
-
-
-// =========================================================================
-// TEACHER LOGIN OTP VERIFY
-// =========================================================================
-
-export const loginOtpVerifyTeacher = async (req, res) => {
-
-  const { identifier, otp } = req.body;
-
-  try {
-
-    const user = await Teacher.findOne({
-      email: identifier,
-      otp,
-      otpExpires: { $gt: Date.now() },
-    });
-
-    if (!user)
-      return res.status(400).json({ message: 'Invalid OTP' });
-
-    user.otp = undefined;
-    user.otpExpires = undefined;
-
-    await user.save();
-
-    const token = jwt.sign(
-      { _id: user._id, email: user.email, role: user.role },
-      getSecret(),
-      { expiresIn: '7d' }
-    );
-
-    res.json({ token, user });
-
-  } catch (err) {
-
-    console.error(err);
-
-    res.status(500).json({ message: 'Login failed' });
-  }
-};
-
