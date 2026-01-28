@@ -1,58 +1,78 @@
 import Teacher from '../models/Teacher.js';
-import { sendEmail } from '../utils/emailService.js'; // <-- ✅ use SMTP helper instead of SendGrid
+import { sendEmail } from '../utils/emailService.js';
 
 const SUPER_ADMIN_EMAIL = 'milankumar7770@gmail.com';
+
 
 /**
  * @desc    Get all teacher profiles
  * @route   GET /api/teachers
- * @access  Private (Requires auth)
+ * @access  Private
  */
 export const getTeachers = async (req, res) => {
-    // ... (Your getTeachers logic is unchanged) ...
+
     try {
         const teachers = await Teacher.find({}).sort({ fullName: 1 });
         res.status(200).json(teachers);
+
     } catch (error) {
         console.error('Error fetching teachers:', error);
-        res.status(500).json({ message: 'Error fetching teacher profiles.', error: error.message });
+        res.status(500).json({
+            message: 'Error fetching teacher profiles.',
+            error: error.message
+        });
     }
 };
+
 
 /**
  * @desc    Verify a teacher profile
  * @route   PATCH /api/teachers/:id/verify
- * @access  Private (Admin / SuperAdmin)
+ * @access  Private
  */
 export const verifyTeacher = async (req, res) => {
+
     try {
+
         // --- SECURITY CHECK ---
         const userRole = req.user.role;
         const isSuperAdmin = req.user.email === SUPER_ADMIN_EMAIL;
 
         if (userRole !== 'admin' && !isSuperAdmin) {
-             return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+            return res.status(403).json({
+                message: 'Access denied. Admin privileges required.'
+            });
         }
-        // --- END SECURITY CHECK ---
+        // ----------------------
+
 
         const teacher = await Teacher.findById(req.params.id);
 
         if (!teacher) {
-            return res.status(404).json({ message: 'Teacher not found' });
+            return res.status(404).json({
+                message: 'Teacher not found'
+            });
         }
 
-        // 1. UPDATE THE USER IN THE DATABASE
+
+        // 1. UPDATE USER
         teacher.isVerified = true;
         const updatedTeacher = await teacher.save();
-        
-        
-        // --- 📧 EMAIL LOGIC (now using Zoho SMTP via sendEmail) ---
+
+
+
+        // ===============================
+        // 📧 SEND EMAIL (SMTP2GO)
+        // ===============================
         if (updatedTeacher.email) {
-            const subject = '🎉Congratulations! Your Alumni Network Account is Verified!';
+
+            const subject =
+                '🎉Congratulations! Your Alumni Network Account is Verified!';
+
 
             const html = `
+
 <style>
-    /* ... (all the CSS animation styles) ... */
     @keyframes draw-circle {
         from { stroke-dashoffset: 315; }
         to { stroke-dashoffset: 0; }
@@ -61,123 +81,153 @@ export const verifyTeacher = async (req, res) => {
         from { stroke-dashoffset: 80; }
         to { stroke-dashoffset: 0; }
     }
-    .circle-bg { fill: none; stroke: #e6e6e6; stroke-width: 8; }
-    .circle-fg {
-        fill: none; stroke: #0d133d; stroke-width: 8;
-        stroke-dasharray: 315; stroke-dashoffset: 315;
-        animation: draw-circle 1s ease-out forwards; animation-delay: 0.2s;
-    }
-    .checkmark {
-        fill: none; stroke: #181be8; stroke-width: 10;
-        stroke-linecap: round; stroke-linejoin: round;
-        stroke-dasharray: 80; stroke-dashoffset: 80;
-        animation: draw-check 0.5s ease-out forwards; animation-delay: 0.8s;
-    }
 </style>
-<div style="font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-    
+
+<div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; border-radius: 12px; overflow: hidden;">
+
     <div style="background: linear-gradient(135deg, #181be8 0%, #0d133d 100%); color: white; padding: 32px; text-align: center;">
-        <h1 style="margin: 0; font-size: 28px; font-weight: bold;">Account Verified!</h1>
+        <h1>Account Verified!</h1>
     </div>
-    
+
     <div style="padding: 40px; text-align: center; color: #333;">
-        
+
         <img 
             src="https://res.cloudinary.com/deyr9bouf/image/upload/v1762210764/logo_bh9u8i.png" 
-            alt="IGIT MCA Alumni Network Logo" 
-            width="100" 
-            style="margin-bottom: 24px; border-radius: 8px;"
+            width="100"
+            style="margin-bottom: 24px;"
         />
-        
-        <h2 style="font-size: 24px; color: #0d133d; margin-bottom: 16px;">
-            Hello, ${updatedTeacher.fullName}!
-        </h2>
-        
-        <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
-            Congratulations! Your account on the <strong>Alumni Network</strong> has been successfully reviewed and verified by an administrator.
+
+        <h2>Hello, ${updatedTeacher.fullName}!</h2>
+
+        <p>
+            Congratulations! Your account has been verified.
         </p>
-        <p style="font-size: 16px; line-height: 1.6; margin-bottom: 32px;">
-            You can now log in to access the full directory, connect with members, and explore all our features.
+
+        <p>
+            You can now log in and access all features.
         </p>
-        
+
         <a 
             href="https://cse.igitalumni.in/login" 
-            style="background: linear-gradient(135deg, #181be8 0%, #0d133d 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;"
+            style="background: #181be8; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;"
         >
           Log In Now
         </a>
+
     </div>
-    
-    <div style="background-color: #f9f9f9; color: #888; padding: 24px; text-align: center; font-size: 12px; border-top: 1px solid #eee;">
-        <p style="margin: 0;">Best regards,<br>The IGIT MCA Alumni Network Team</p>
+
+    <div style="background-color: #f9f9f9; padding: 20px; text-align: center; font-size: 12px;">
+        Best regards,<br>
+        The IGIT MCA Alumni Network Team
     </div>
+
 </div>
 `;
 
+
             try {
-                await sendEmail({
-                    to: updatedTeacher.email,
+
+                // ✅ FIXED CALL (correct format)
+                await sendEmail(
+                    updatedTeacher.email,
                     subject,
-                    html,
-                    // "from" comes from EMAIL_FROM / SMTP_USER in emailService.js
-                });
-                console.log(`Verification email sent successfully to ${updatedTeacher.email}`);
+                    html
+                );
+
+                console.log(`✅ Verification email sent to ${updatedTeacher.email}`);
+
             } catch (emailError) {
+
                 console.error(
-                    `Failed to send verification email to ${updatedTeacher.email}:`,
+                    `❌ Failed to send verification email to ${updatedTeacher.email}:`,
                     emailError.message
                 );
             }
-        } else {
-            console.warn(`User ${updatedTeacher._id} approved but has no email address. Cannot send verification email.`);
-        }
-        // --- 📧 END EMAIL LOGIC ---
 
-        
-        // 2. SEND SUCCESS RESPONSE TO ADMIN
+        } else {
+
+            console.warn(`User ${updatedTeacher._id} has no email.`);
+        }
+
+
+
+        // 2. RESPONSE
         res.status(200).json(updatedTeacher);
 
+
     } catch (error) {
+
         console.error('Error verifying teacher:', error);
-        res.status(500).json({ message: 'Error verifying teacher', error: error.message });
+
+        res.status(500).json({
+            message: 'Error verifying teacher',
+            error: error.message
+        });
     }
 };
+
 
 
 /**
  * @desc    Delete a teacher profile
  * @route   DELETE /api/teachers/:id
- * @access  Private (Admin / SuperAdmin)
+ * @access  Private
  */
 export const deleteTeacher = async (req, res) => {
-    // ... (Your delete logic is unchanged) ...
+
     try {
+
         const teacher = await Teacher.findById(req.params.id);
 
         if (!teacher) {
-            return res.status(404).json({ message: 'Teacher not found' });
+            return res.status(404).json({
+                message: 'Teacher not found'
+            });
         }
+
 
         const userRole = req.user.role;
         const isSuperAdmin = req.user.email === SUPER_ADMIN_EMAIL;
 
+
         if (isSuperAdmin) {
+
             await Teacher.findByIdAndDelete(req.params.id);
-            return res.status(200).json({ message: 'Teacher profile deleted successfully' });
-        } 
-        
-        if (userRole === 'admin') {
-            if (teacher.isVerified) {
-                return res.status(403).json({ message: 'Access denied. Admins can only delete unverified users.' });
-            }
-            await Teacher.findByIdAndDelete(req.params.id);
-            return res.status(200).json({ message: 'Teacher profile deleted successfully' });
+
+            return res.status(200).json({
+                message: 'Teacher profile deleted successfully'
+            });
         }
-        
-        return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+
+
+        if (userRole === 'admin') {
+
+            if (teacher.isVerified) {
+                return res.status(403).json({
+                    message: 'Admins can only delete unverified users.'
+                });
+            }
+
+            await Teacher.findByIdAndDelete(req.params.id);
+
+            return res.status(200).json({
+                message: 'Teacher profile deleted successfully'
+            });
+        }
+
+
+        return res.status(403).json({
+            message: 'Access denied.'
+        });
+
 
     } catch (error) {
+
         console.error('Error deleting teacher:', error);
-        res.status(500).json({ message: 'Error deleting teacher', error: error.message });
+
+        res.status(500).json({
+            message: 'Error deleting teacher',
+            error: error.message
+        });
     }
 };

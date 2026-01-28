@@ -3,70 +3,129 @@ import Teacher from '../models/Teacher.js';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import sgMail from '@sendgrid/mail'; // SendGrid client
-import mongoose from 'mongoose'; 
+import mongoose from 'mongoose';
+import nodemailer from 'nodemailer'; // ✅ SMTP2GO
 
 const OTP_EXPIRY_MINUTES = 10;
-// Fallback secret for safety if environment variable fails
-const getSecret = () => process.env.JWT_SECRET || 'a8f5b1e3d7c2a4b6e8d9f0a1b3c5d7e9f2a4b6c8d0e1f3a5b7c9d1e3f5a7b9c1';
 
-// Consistent Super Admin Email check
-const getSuperAdminEmail = () => process.env.SUPER_ADMIN_EMAIL || process.env.REACT_APP_SUPER_ADMIN_EMAIL || 'milankumar7770@gmail.com';
+// Fallback secret
+const getSecret = () =>
+  process.env.JWT_SECRET ||
+  'a8f5b1e3d7c2a4b6e8d9f0a1b3c5d7e9f2a4b6c8d0e1f3a5b7c9d1e3f5a7b9c1';
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// Super Admin
+const getSuperAdminEmail = () =>
+  process.env.SUPER_ADMIN_EMAIL ||
+  process.env.REACT_APP_SUPER_ADMIN_EMAIL ||
+  'milankumar7770@gmail.com';
 
-// Default password for promoted admins
+// Default password
 const DEFAULT_ADMIN_PASSWORD = 'igit@cse';
 
-// =========================================================================
-// --- HELPER FUNCTIONS (KEEP ONLY ONE COPY OF THESE) ---
-// =========================================================================
+
+// ===================================================
+// ✅ SMTP2GO CONFIG
+// ===================================================
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+
+// ===================================================
+// HELPERS
+// ===================================================
 
 const findUserById = async (id) => {
-    if (!mongoose.Types.ObjectId.isValid(id)) return null;
-    let user = await Alumni.findById(id).select('+password +role +isVerified');
-    if (!user) {
-        user = await Teacher.findById(id).select('+password +role +isVerified');
-    }
-    return user;
+  if (!mongoose.Types.ObjectId.isValid(id)) return null;
+
+  let user = await Alumni.findById(id).select('+password +role +isVerified');
+
+  if (!user) {
+    user = await Teacher.findById(id).select('+password +role +isVerified');
+  }
+
+  return user;
 };
+
 
 const findUserByIdAndUpdate = async (id, update, options = {}) => {
-    if (!mongoose.Types.ObjectId.isValid(id)) return null;
-    let user = await Alumni.findByIdAndUpdate(id, update, { new: true, ...options });
-    if (!user) {
-        user = await Teacher.findByIdAndUpdate(id, update, { new: true, ...options });
-    }
-    return user;
+  if (!mongoose.Types.ObjectId.isValid(id)) return null;
+
+  let user = await Alumni.findByIdAndUpdate(id, update, {
+    new: true,
+    ...options,
+  });
+
+  if (!user) {
+    user = await Teacher.findByIdAndUpdate(id, update, {
+      new: true,
+      ...options,
+    });
+  }
+
+  return user;
 };
+
+
+// ===================================================
+// ✅ UPDATED EMAIL FUNCTION (SMTP2GO)
+// ===================================================
 
 const sendVerificationEmail = async (toEmail, otp, subject) => {
-    const msg = {
-        from: process.env.EMAIL_USER, 
-        to: toEmail,
-        subject: subject,
-        html: `<p>Your OTP is: <strong>${otp}</strong>. It is valid for ${OTP_EXPIRY_MINUTES} minutes.</p>`,
-    };
-    try {
-        await sgMail.send(msg);
-    } catch (error) {
-        console.error('SendGrid Error:', error.response?.body || error.message);
-    }
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: toEmail,
+    subject: subject,
+    html: `<p>Your OTP is: <strong>${otp}</strong>. It is valid for ${OTP_EXPIRY_MINUTES} minutes.</p>`,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error('SMTP Error:', error.message);
+  }
 };
 
+
+// ===================================================
+
 const getHighestNumericalID = async () => {
-    const alumniCodeQuery = await Alumni.findOne({ alumniCode: { $ne: null, $ne: '' } }).sort({ alumniCode: -1 }).select('alumniCode').exec();
-    const teacherCodeQuery = await Teacher.findOne({ teacherCode: { $ne: null, $ne: '' } }).sort({ teacherCode: -1 }).select('teacherCode').exec();
-    let highestNumber = 999;
-    const extractNumber = (code) => {
-        const match = code ? code.match(/^CSE(\d{4})[AF]$/) : null;
-        return match && match[1] ? parseInt(match[1], 10) : 0;
-    };
-    const alumniNumber = extractNumber(alumniCodeQuery?.alumniCode);
-    const teacherNumber = extractNumber(teacherCodeQuery?.teacherCode);
-    highestNumber = Math.max(highestNumber, alumniNumber, teacherNumber);
-    const nextNumber = highestNumber + 1;
-    return String(nextNumber).padStart(4, '0');
+  const alumniCodeQuery = await Alumni.findOne({
+    alumniCode: { $ne: null, $ne: '' },
+  })
+    .sort({ alumniCode: -1 })
+    .select('alumniCode')
+    .exec();
+
+  const teacherCodeQuery = await Teacher.findOne({
+    teacherCode: { $ne: null, $ne: '' },
+  })
+    .sort({ teacherCode: -1 })
+    .select('teacherCode')
+    .exec();
+
+  let highestNumber = 999;
+
+  const extractNumber = (code) => {
+    const match = code ? code.match(/^CSE(\d{4})[AF]$/) : null;
+    return match && match[1] ? parseInt(match[1], 10) : 0;
+  };
+
+  const alumniNumber = extractNumber(alumniCodeQuery?.alumniCode);
+  const teacherNumber = extractNumber(teacherCodeQuery?.teacherCode);
+
+  highestNumber = Math.max(highestNumber, alumniNumber, teacherNumber);
+
+  const nextNumber = highestNumber + 1;
+
+  return String(nextNumber).padStart(4, '0');
 };
 
 
@@ -75,35 +134,62 @@ const getHighestNumericalID = async () => {
 // =========================================================================
 
 export const sendOtp = async (req, res) => {
-    const { email, fullName, batch, phoneNumber, location, company, position } = req.body;
-    
-    // --- ✅ FIX: Removed !phoneNumber from this validation check ---
-    if (!email || !fullName || !batch || !location) { 
-        return res.status(400).json({ message: 'All required fields must be filled.' }); 
+  const { email, fullName, batch, phoneNumber, location, company, position } =
+    req.body;
+
+  if (!email || !fullName || !batch || !location) {
+    return res
+      .status(400)
+      .json({ message: 'All required fields must be filled.' });
+  }
+
+  try {
+    let alumni = await Alumni.findOne({ email });
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+
+    const otpExpires = new Date(
+      Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000
+    );
+
+    const alumniData = {
+      fullName,
+      email,
+      location,
+      batch,
+      otp,
+      otpExpires,
+      isVerified: false,
+    };
+
+    if (phoneNumber) alumniData.phoneNumber = phoneNumber;
+
+    if (company) alumniData.company = company;
+    if (position) alumniData.position = position;
+
+    if (alumni) {
+      alumni.set(alumniData);
+      await alumni.save();
+    } else {
+      await Alumni.create(alumniData);
     }
-    // -----------------------------------------------------------------
 
-    try {
-        let alumni = await Alumni.findOne({ email });
-        const otp = crypto.randomInt(100000, 999999).toString();
-        const otpExpires = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-        
-        // --- ✅ FIX: This logic correctly handles the optional phone number ---
-        const alumniData = { fullName, email, location, batch, otp, otpExpires, isVerified: false };
-        if (phoneNumber) alumniData.phoneNumber = phoneNumber; // Only add if it exists
-        // ----------------------------------------------------------------------
+    await sendVerificationEmail(
+      email,
+      otp,
+      'Your AlumniConnect Verification Code'
+    );
 
-        if (company) alumniData.company = company;
-        if (position) alumniData.position = position;
-        
-        if (alumni) { alumni.set(alumniData); await alumni.save(); } else { await Alumni.create(alumniData); }
-        
-        await sendVerificationEmail(email, otp, 'Your AlumniConnect Verification Code');
-        res.status(200).json({ message: 'OTP sent successfully to your email.' });
-    } catch (error) {
-        console.error('Error sending email (SendGrid API Failed):', error);
-        res.status(500).json({ message: 'Server error. Could not send OTP.' });
-    }
+    res.status(200).json({
+      message: 'OTP sent successfully to your email.',
+    });
+  } catch (error) {
+    console.error('Error sending email:', error);
+
+    res.status(500).json({
+      message: 'Server error. Could not send OTP.',
+    });
+  }
 };
 
 export const verifyOtpAndRegister = async (req, res) => {
