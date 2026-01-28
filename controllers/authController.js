@@ -468,3 +468,89 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ message: 'Reset failed' });
   }
 };
+// =========================================================================
+// TEACHER LOGIN OTP SEND
+// =========================================================================
+
+export const loginOtpSendTeacher = async (req, res) => {
+
+  const { identifier } = req.body;
+
+  try {
+
+    const user = await Teacher.findOne({ email: identifier });
+
+    if (!user)
+      return res.status(404).json({ message: 'Teacher not found' });
+
+    if (!user.isVerified)
+      return res.status(403).json({ message: 'Not approved yet' });
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+
+    const otpExpires = new Date(
+      Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000
+    );
+
+    user.otp = otp;
+    user.otpExpires = otpExpires;
+
+    await user.save();
+
+    await sendVerificationEmail(
+      user.email,
+      otp,
+      'Teacher Login OTP'
+    );
+
+    res.json({ message: 'OTP sent to teacher email' });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({ message: 'OTP failed' });
+  }
+};
+
+
+// =========================================================================
+// TEACHER LOGIN OTP VERIFY
+// =========================================================================
+
+export const loginOtpVerifyTeacher = async (req, res) => {
+
+  const { identifier, otp } = req.body;
+
+  try {
+
+    const user = await Teacher.findOne({
+      email: identifier,
+      otp,
+      otpExpires: { $gt: Date.now() },
+    });
+
+    if (!user)
+      return res.status(400).json({ message: 'Invalid OTP' });
+
+    user.otp = undefined;
+    user.otpExpires = undefined;
+
+    await user.save();
+
+    const token = jwt.sign(
+      { _id: user._id, email: user.email, role: user.role },
+      getSecret(),
+      { expiresIn: '7d' }
+    );
+
+    res.json({ token, user });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({ message: 'Login failed' });
+  }
+};
+
