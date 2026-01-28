@@ -4,14 +4,18 @@ import nodemailer from "nodemailer";
 // SMTP2GO Transporter Setup
 // ===============================
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT),
-    secure: false, // true only for 465
+    host: "smtp.zoho.in",
+    port: 465,
+    secure: true, // REQUIRED for Zoho SSL
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
+    },
+    tls: {
+        rejectUnauthorized: false
     }
 });
+
 
 // Verify SMTP Connection
 transporter.verify((error, success) => {
