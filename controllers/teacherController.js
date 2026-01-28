@@ -1,7 +1,9 @@
 import Teacher from '../models/Teacher.js';
 import { sendEmail } from '../utils/emailService.js';
 
-const SUPER_ADMIN_EMAIL = 'milankumar7770@gmail.com';
+// Super Admin (from env or fallback)
+const SUPER_ADMIN_EMAIL =
+    process.env.SUPER_ADMIN_EMAIL || 'milankumar7770@gmail.com';
 
 
 /**
@@ -16,13 +18,16 @@ export const getTeachers = async (req, res) => {
         res.status(200).json(teachers);
 
     } catch (error) {
+
         console.error('Error fetching teachers:', error);
+
         res.status(500).json({
             message: 'Error fetching teacher profiles.',
             error: error.message
         });
     }
 };
+
 
 
 /**
@@ -34,7 +39,9 @@ export const verifyTeacher = async (req, res) => {
 
     try {
 
-        // --- SECURITY CHECK ---
+        // ===============================
+        // SECURITY CHECK
+        // ===============================
         const userRole = req.user.role;
         const isSuperAdmin = req.user.email === SUPER_ADMIN_EMAIL;
 
@@ -43,7 +50,7 @@ export const verifyTeacher = async (req, res) => {
                 message: 'Access denied. Admin privileges required.'
             });
         }
-        // ----------------------
+        // ===============================
 
 
         const teacher = await Teacher.findById(req.params.id);
@@ -55,19 +62,21 @@ export const verifyTeacher = async (req, res) => {
         }
 
 
-        // 1. UPDATE USER
+        // ===============================
+        // UPDATE USER
+        // ===============================
         teacher.isVerified = true;
         const updatedTeacher = await teacher.save();
 
 
 
         // ===============================
-        // 📧 SEND EMAIL (SMTP2GO)
+        // 📧 SEND EMAIL
         // ===============================
         if (updatedTeacher.email) {
 
             const subject =
-                '🎉Congratulations! Your Alumni Network Account is Verified!';
+                '🎉 Congratulations! Your Alumni Network Account is Verified!';
 
 
             const html = `
@@ -127,12 +136,13 @@ export const verifyTeacher = async (req, res) => {
 
             try {
 
-                // ✅ FIXED CALL (correct format)
-                await sendEmail(
-                    updatedTeacher.email,
-                    subject,
-                    html
-                );
+                // ✅ CORRECT sendEmail FORMAT
+                await sendEmail({
+                    to: updatedTeacher.email,
+                    subject: subject,
+                    text: `Hello ${updatedTeacher.fullName}, your account has been verified.`,
+                    html: html
+                });
 
                 console.log(`✅ Verification email sent to ${updatedTeacher.email}`);
 
@@ -140,7 +150,7 @@ export const verifyTeacher = async (req, res) => {
 
                 console.error(
                     `❌ Failed to send verification email to ${updatedTeacher.email}:`,
-                    emailError.message
+                    emailError
                 );
             }
 
@@ -151,7 +161,9 @@ export const verifyTeacher = async (req, res) => {
 
 
 
-        // 2. RESPONSE
+        // ===============================
+        // RESPONSE
+        // ===============================
         res.status(200).json(updatedTeacher);
 
 
@@ -190,6 +202,9 @@ export const deleteTeacher = async (req, res) => {
         const isSuperAdmin = req.user.email === SUPER_ADMIN_EMAIL;
 
 
+        // ===============================
+        // SUPER ADMIN DELETE
+        // ===============================
         if (isSuperAdmin) {
 
             await Teacher.findByIdAndDelete(req.params.id);
@@ -200,6 +215,9 @@ export const deleteTeacher = async (req, res) => {
         }
 
 
+        // ===============================
+        // ADMIN DELETE
+        // ===============================
         if (userRole === 'admin') {
 
             if (teacher.isVerified) {
